@@ -4,9 +4,10 @@ on:
   pull_request:
     types: [closed]
 
-  schedule:
-    # Daily orphan sweep at 6 AM UTC
-    - cron: "0 6 * * *"
+  # --- Supabase branching (requires Pro plan) ---
+  # Uncomment for daily orphan sweep:
+  # schedule:
+  #   - cron: "0 6 * * *"
 
 jobs:
   cleanup-pr:
@@ -14,22 +15,23 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: write
-    env:
-      PR: ${{ github.event.pull_request.number }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
     steps:
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Delete Supabase preview branch
-        run: |
-          supabase branches delete "pr-${PR}" \
-            --project-ref "$SUPABASE_PROJECT_ID" \
-            --yes 2>/dev/null || echo "Branch already deleted or never existed"
+      # --- Supabase branching cleanup (requires Pro plan) ---
+      # Uncomment when branching is available:
+      #
+      # - uses: supabase/setup-cli@v1
+      #   with:
+      #     version: latest
+      #
+      # - name: Delete Supabase preview branch
+      #   env:
+      #     SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      #   run: |
+      #     supabase branches delete "pr-${{ github.event.pull_request.number }}" \
+      #       --project-ref "${{ vars.SUPABASE_PROJECT_ID }}" \
+      #       --yes 2>/dev/null || echo "Branch already deleted or never existed"
+      # --- End branching section ---
 
       - name: Comment cleanup confirmation
         uses: actions/github-script@v7
@@ -44,57 +46,6 @@ jobs:
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 comment_id: existing.id,
-                body: existing.body + '\n\n---\n\nCleaned up — branch database deleted.',
+                body: existing.body + '\n\n---\n\nPreview closed.',
               });
-            }
-
-  sweep-stale:
-    name: Sweep orphaned branches
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
-    steps:
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Delete branches for closed PRs
-        uses: actions/github-script@v7
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
-        with:
-          script: |
-            const { execSync } = require('child_process');
-
-            const { data: openPRs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-            });
-            const openNumbers = new Set(openPRs.map(pr => pr.number));
-
-            const branchesRaw = execSync(
-              `supabase branches list --project-ref "${process.env.SUPABASE_PROJECT_ID}" -o json`,
-              { encoding: 'utf8' }
-            );
-            const branches = JSON.parse(branchesRaw);
-
-            for (const branch of branches) {
-              const match = branch.name.match(/^pr-(\d+)$/);
-              if (!match) continue;
-              const prNum = parseInt(match[1], 10);
-              if (openNumbers.has(prNum)) continue;
-
-              console.log(`Deleting orphaned branch: ${branch.name} (PR #${prNum} is closed)`);
-              try {
-                execSync(
-                  `supabase branches delete "${branch.name}" --project-ref "${process.env.SUPABASE_PROJECT_ID}" --yes`,
-                  { encoding: 'utf8' }
-                );
-              } catch (e) {
-                console.log(`  Failed to delete ${branch.name}: ${e.message}`);
-              }
             }
