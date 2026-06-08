@@ -60,7 +60,7 @@ jobs:
           COUNT=0
           for URL in $URLS; do
             echo "Removing $URL"
-            vercel rm "$URL" --yes --safe --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            vercel rm "$URL" --yes --token=${{ secrets.VERCEL_TOKEN }}
             COUNT=$((COUNT + 1))
           done
           echo "Removed $COUNT preview deployment(s) for PR #$PR_NUMBER"
