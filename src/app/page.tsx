@@ -19,6 +19,16 @@ export default async function Home() {
     .select("*")
     .order("created_at", { ascending: false })
 
+  // Raw fetch for debugging
+  const rawUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/items?select=*`
+  const rawRes = await fetch(rawUrl, {
+    headers: {
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`,
+    },
+    cache: "no-store",
+  }).then((r) => r.json()).catch((e) => ({ fetchError: e.message }))
+
   const columns =
     items && items.length > 0
       ? Object.keys(items[0])
@@ -77,7 +87,7 @@ export default async function Home() {
       <h2>Items</h2>
       <details style={{ fontSize: 12, marginBottom: 8, color: "#999" }}>
         <summary>Debug</summary>
-        <pre>{JSON.stringify({ supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30), itemCount: items?.length ?? "null", error: error?.message ?? null }, null, 2)}</pre>
+        <pre>{JSON.stringify({ supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30), itemCount: items?.length ?? "null", error: error?.message ?? null, rawFetchCount: Array.isArray(rawRes) ? rawRes.length : rawRes }, null, 2)}</pre>
       </details>
       {error ? (
         <p style={{ color: "red" }}>Error: {error.message}</p>
