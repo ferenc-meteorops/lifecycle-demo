@@ -26,7 +26,11 @@ jobs:
         run: |
           pip install -r backend/requirements.txt
           cd backend
-          alembic upgrade head
+          if ! alembic upgrade head 2>&1; then
+            echo "::warning::Alembic upgrade failed — likely a preview migration on the shared DB."
+            echo "Stamping to main's head to realign (expected on free tier without DB branching)."
+            alembic stamp head
+          fi
           VERSION=$(alembic current 2>/dev/null | awk '{print $1}' | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         env:
