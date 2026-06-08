@@ -33,6 +33,32 @@ jobs:
       #       --yes 2>/dev/null || echo "Branch already deleted or never existed"
       # --- End branching section ---
 
+      - name: Remove Vercel preview deployments
+        run: |
+          DEPLOYMENTS=$(curl -s \
+            "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&teamId=${{ secrets.VERCEL_ORG_ID }}&limit=50" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | \
+            python3 -c "
+          import sys, json
+          for d in json.load(sys.stdin).get('deployments', []):
+              if d.get('target') != 'production':
+                  print(d['uid'])
+          ")
+
+          if [ -z "$DEPLOYMENTS" ]; then
+            echo "No preview deployments to clean up"
+            exit 0
+          fi
+
+          COUNT=0
+          for DEP_ID in $DEPLOYMENTS; do
+            curl -s -X DELETE \
+              "https://api.vercel.com/v13/deployments/$DEP_ID?teamId=${{ secrets.VERCEL_ORG_ID }}" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" > /dev/null
+            COUNT=$((COUNT + 1))
+          done
+          echo "Removed $COUNT preview deployment(s)"
+
       - name: Comment cleanup confirmation
         uses: actions/github-script@v7
         with:
@@ -46,6 +72,6 @@ jobs:
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 comment_id: existing.id,
-                body: existing.body + '\n\n---\n\nPreview closed.',
+                body: existing.body + '\n\n---\n\n🧹 Preview closed. Vercel preview deployments removed.',
               });
             }
