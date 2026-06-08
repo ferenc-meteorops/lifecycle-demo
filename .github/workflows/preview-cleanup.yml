@@ -16,6 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       # --- Supabase branching cleanup (requires Pro plan) ---
       # Uncomment when branching is available:
@@ -33,31 +36,34 @@ jobs:
       #       --yes 2>/dev/null || echo "Branch already deleted or never existed"
       # --- End branching section ---
 
-      - name: Remove Vercel preview deployments
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Remove preview deployments for this PR
         run: |
-          DEPLOYMENTS=$(curl -s \
-            "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&teamId=${{ secrets.VERCEL_ORG_ID }}&limit=50" \
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          URLS=$(curl -s \
+            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&meta-pr=$PR_NUMBER&limit=50" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | \
             python3 -c "
           import sys, json
           for d in json.load(sys.stdin).get('deployments', []):
-              if d.get('target') != 'production':
-                  print(d['uid'])
+              print(d['url'])
           ")
 
-          if [ -z "$DEPLOYMENTS" ]; then
-            echo "No preview deployments to clean up"
+          if [ -z "$URLS" ]; then
+            echo "No preview deployments found for PR #$PR_NUMBER"
             exit 0
           fi
 
           COUNT=0
-          for DEP_ID in $DEPLOYMENTS; do
-            curl -s -X DELETE \
-              "https://api.vercel.com/v13/deployments/$DEP_ID?teamId=${{ secrets.VERCEL_ORG_ID }}" \
-              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" > /dev/null
+          for URL in $URLS; do
+            echo "Removing $URL"
+            vercel rm "$URL" --yes --safe --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
             COUNT=$((COUNT + 1))
           done
-          echo "Removed $COUNT preview deployment(s)"
+          echo "Removed $COUNT preview deployment(s) for PR #$PR_NUMBER"
 
       - name: Comment cleanup confirmation
         uses: actions/github-script@v7
@@ -72,6 +78,6 @@ jobs:
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 comment_id: existing.id,
-                body: existing.body + '\n\n---\n\n🧹 Preview closed. Vercel preview deployments removed.',
+                body: existing.body + '\n\n---\n\nPreview closed. Vercel deployments removed.',
               });
             }
