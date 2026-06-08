@@ -75,6 +75,10 @@ export default async function Home() {
       </div>
 
       <h2>Items</h2>
+      <details style={{ fontSize: 12, marginBottom: 8, color: "#999" }}>
+        <summary>Debug</summary>
+        <pre>{JSON.stringify({ supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30), itemCount: items?.length ?? "null", error: error?.message ?? null }, null, 2)}</pre>
+      </details>
       {error ? (
         <p style={{ color: "red" }}>Error: {error.message}</p>
       ) : items && items.length > 0 ? (
