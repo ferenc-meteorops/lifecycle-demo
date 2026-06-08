@@ -5,7 +5,14 @@ interface Item {
   name: string
   created_at: string
   description?: string | null
+  priority?: string | null
   [key: string]: unknown
+}
+
+const priorityColors: Record<string, { bg: string; text: string }> = {
+  high: { bg: "#fee2e2", text: "#dc2626" },
+  medium: { bg: "#fef9c3", text: "#ca8a04" },
+  low: { bg: "#dcfce7", text: "#16a34a" },
 }
 
 export const dynamic = "force-dynamic"
@@ -82,6 +89,22 @@ export default async function Home() {
           {(items as Item[]).map((item) => (
             <li key={item.id}>
               <strong>{item.name}</strong>
+              {item.priority && (
+                <span
+                  style={{
+                    display: "inline-block",
+                    marginLeft: 8,
+                    padding: "1px 8px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: priorityColors[item.priority]?.bg ?? "#f3f4f6",
+                    color: priorityColors[item.priority]?.text ?? "#6b7280",
+                  }}
+                >
+                  {item.priority}
+                </span>
+              )}
               {item.description && (
                 <span style={{ color: "#666" }}> &mdash; {item.description}</span>
               )}
