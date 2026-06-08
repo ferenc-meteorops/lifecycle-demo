@@ -31,6 +31,8 @@ export default async function Home() {
       <h1 style={{ marginBottom: "0.25rem" }}>Lifecycle Demo</h1>
       <p style={{ color: "#666", marginTop: 0 }}>
         Per-PR preview environments with Alembic migrations &amp; Vercel.
+        <br />
+        <small>Deployed via GitHub Actions &bull; Vercel CLI</small>
       </p>
 
       <div
